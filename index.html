@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>abb</title>
     <style>
-        /* 保持原有样式不变 */
+        /* 全局重置 */
         * {
             margin: 0;
             padding: 0;
@@ -22,6 +22,7 @@
             overflow: hidden;
         }
 
+        /* 星星效果（初始隐藏） */
         .stars {
             position: fixed;
             top: 0;
@@ -30,6 +31,7 @@
             height: 100%;
             pointer-events: none;
             z-index: 0;
+            display: none; /* 初始隐藏，密码验证后显示 */
         }
 
         .star {
@@ -47,6 +49,7 @@
             100% { opacity: 0.4; transform: scale(0.9); }
         }
 
+        /* 诗句容器（初始隐藏） */
         .poem-container {
             position: relative;
             z-index: 1;
@@ -63,6 +66,7 @@
             -ms-overflow-style: none;
             mask-image: linear-gradient(to bottom, transparent 0%, #fff 8%, #fff 92%, transparent 100%);
             -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #fff 8%, #fff 92%, transparent 100%);
+            display: none; /* 初始隐藏，密码验证后显示 */
         }
 
         .poem-container::-webkit-scrollbar {
@@ -90,6 +94,7 @@
             }
         }
 
+        /* 密码遮罩（初始全屏显示，唯一可见元素） */
         .password-mask {
             position: fixed;
             top: 0;
@@ -102,20 +107,10 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.5s ease, pointer-events 0.5s ease;
             padding: 0 20px;
-            opacity: 0; /* 初始隐藏 */
-            pointer-events: none; /* 初始不可点击 */
-        }
-
-        .password-mask.visible {
+            /* 初始就显示，不需要过渡，直到密码验证后隐藏 */
             opacity: 1;
             pointer-events: auto;
-        }
-
-        .password-mask.hidden {
-            opacity: 0;
-            pointer-events: none;
         }
 
         .mask-hint {
@@ -126,6 +121,7 @@
             letter-spacing: 3px;
             text-align: center;
             text-transform: lowercase;
+            display: none; /* 初始隐藏，加载完成后显示 */
         }
 
         .password-input {
@@ -140,6 +136,7 @@
             outline: none;
             text-align: center;
             letter-spacing: 2px;
+            display: none; /* 初始隐藏，加载完成后显示 */
         }
 
         .password-input:focus {
@@ -147,12 +144,14 @@
             box-shadow: 0 0 15px rgba(214, 51, 132, 0.3);
         }
 
+        /* 加载提示（初始唯一显示） */
         .loading-indicator {
             color: #d63384;
             font-size: 18px;
             text-align: center;
         }
 
+        /* 玫瑰容器（初始隐藏） */
         .rose-container {
             position: fixed;
             bottom: 0;
@@ -164,6 +163,7 @@
             opacity: 0;
             transition: opacity 0.3s ease;
             overflow: hidden;
+            display: none; /* 初始隐藏，密码验证后显示 */
         }
 
         .rose {
@@ -215,17 +215,19 @@
     </style>
 </head>
 <body>
+    <!-- 星星（初始隐藏） -->
     <div class="stars" id="stars"></div>
 
+    <!-- 密码遮罩（初始全屏显示，唯一可见） -->
     <div class="password-mask" id="passwordMask">
-        <div class="loading-indicator" id="loadingIndicator">加载音乐中...</div>
-        <div class="mask-hint" id="maskHint" style="display: none;">abbm</div>
-        <input type="password" class="password-input" id="passwordInput" placeholder="输入密码自动解锁" style="display: none;">
+        <div class="loading-indicator" id="loadingIndicator">xbb中...</div>
+        <div class="mask-hint" id="maskHint">abbm</div>
+        <input type="password" class="password-input" id="passwordInput" placeholder="输入密码自动解锁">
     </div>
 
+    <!-- 诗句容器（初始隐藏） -->
     <div class="poem-container" id="poemContainer">
         <div class="poem-content">
-            <!-- 保持原有内容不变 -->
 初见那一刻，你眼底的光如流星撞进我心间
 我们走过天街，灯影追着脚步轻旋
 沿着夜晚的河岸漫步，踏乱月影如碎银片片
@@ -275,23 +277,35 @@
         </div>
     </div>
 
+    <!-- 玫瑰容器（初始隐藏） -->
     <div class="rose-container" id="roseContainer"></div>
 
-    <audio id="backgroundMusic" loop>
+    <!-- 音频元素 -->
+    <audio id="backgroundMusic" loop preload="auto">
         <source src="background.mp3" type="audio/mpeg">
         您的浏览器不支持音频播放
     </audio>
 
     <script>
-        // 页面加载完成后立即开始加载音乐
+        // 核心元素获取
+        const audio = document.getElementById('backgroundMusic');
+        const passwordMask = document.getElementById('passwordMask');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const maskHint = document.getElementById('maskHint');
+        const passwordInput = document.getElementById('passwordInput');
+        const stars = document.getElementById('stars');
+        const poemContainer = document.getElementById('poemContainer');
+        const roseContainer = document.getElementById('roseContainer');
+        const correctPassword = 'abb'; // 正确密码
+
+        // 页面加载后立即执行：初始化星星 + 强制加载音频
         window.onload = () => {
-            initStars();
-            loadBackgroundMusic();
+            initStars(); // 先初始化星星（但不显示）
+            loadAudioImmediately(); // 立即加载音频
         };
 
-        // 初始化星星效果
+        // 初始化星星效果（仅创建元素，不显示）
         function initStars() {
-            const stars = document.getElementById('stars');
             const starCount = 40;
             const screenWidth = window.innerWidth;
             const screenHeight = window.innerHeight;
@@ -314,137 +328,131 @@
             }
         }
 
-        // 加载背景音乐并监听加载状态
-        function loadBackgroundMusic() {
-            const audio = document.getElementById('backgroundMusic');
-            const passwordMask = document.getElementById('passwordMask');
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            const maskHint = document.getElementById('maskHint');
-            const passwordInput = document.getElementById('passwordInput');
-
-            // 显示密码遮罩（加载状态）
-            passwordMask.classList.add('visible');
-
-            // 监听音乐加载完成事件
+        // 立即加载音频（页面一打开就加载）
+        function loadAudioImmediately() {
+            // 监听音频完全加载完成（可流畅播放）
             audio.addEventListener('canplaythrough', () => {
-                // 音乐加载完成，显示密码输入框
+                // 隐藏加载提示，显示密码输入区域
                 loadingIndicator.style.display = 'none';
                 maskHint.style.display = 'block';
                 passwordInput.style.display = 'block';
-                passwordInput.focus();
-                
-                // 绑定密码验证事件
-                bindPasswordVerification(audio);
+                passwordInput.focus(); // 自动聚焦输入框
             });
 
-            // 监听加载错误事件
+            // 音频加载错误处理
             audio.addEventListener('error', () => {
-                loadingIndicator.textContent = '音乐加载失败，请刷新页面重试';
+                loadingIndicator.textContent = '加载失败，请刷新重试';
             });
 
-            // 开始加载音乐
+            // 强制触发音频加载（preload="auto" + 主动load）
             audio.load();
         }
 
-        // 绑定密码验证事件
-        function bindPasswordVerification(audio) {
-            const passwordMask = document.getElementById('passwordMask');
-            const passwordInput = document.getElementById('passwordInput');
-            const correctPassword = 'abb';
+        // 密码验证逻辑
+        passwordInput.addEventListener('input', (e) => {
+            const inputValue = e.target.value.trim();
+            if (inputValue === correctPassword) {
+                // 1. 隐藏密码遮罩
+                passwordMask.style.opacity = 0;
+                passwordMask.style.pointerEvents = 'none';
+                setTimeout(() => {
+                    passwordMask.style.display = 'none';
+                }, 500);
 
-            passwordInput.addEventListener('input', (e) => {
-                const inputValue = e.target.value.trim();
-                if (inputValue === correctPassword) {
-                    passwordMask.classList.remove('visible');
-                    passwordMask.classList.add('hidden');
-                    document.querySelector('.poem-container').focus();
-                    passwordInput.blur();
-                    document.activeElement.blur();
-                    
-                    // 播放音乐
-                    audio.play().catch(err => {
-                        alert('请轻触页面播放背景音乐');
-                    });
-                }
-            });
-        }
+                // 2. 显示诗句、星星、玫瑰容器
+                stars.style.display = 'block';
+                poemContainer.style.display = 'block';
+                roseContainer.style.display = 'block';
 
-        // 玫瑰效果（保持原有逻辑）
-        const poemContainer = document.getElementById('poemContainer');
-        const roseContainer = document.getElementById('roseContainer');
-        let isRoseVisible = false;
-        const roseIcon = '🌹';
-        const rosePerRow = 32;
-        const bouquetCenterX = window.innerWidth / 2;
-        const rowRadius = 340;
+                // 3. 自动播放音频（处理浏览器自动播放策略）
+                audio.play().catch(err => {
+                    // 如果自动播放失败，提示用户点击页面播放
+                    alert('请轻触/点击页面任意位置播放背景音乐');
+                    document.body.addEventListener('click', () => {
+                        audio.play();
+                    }, { once: true });
+                });
 
-        poemContainer.addEventListener('scroll', () => {
-            const scrollBottom = poemContainer.scrollHeight - poemContainer.scrollTop;
-            const containerHeight = poemContainer.clientHeight;
-            const isScrollToBottom = scrollBottom <= containerHeight + 20;
-
-            if (isScrollToBottom && !isRoseVisible) {
-                isRoseVisible = true;
-                createSingleRowRoses();
-            } else if (!isScrollToBottom && isRoseVisible) {
-                isRoseVisible = false;
-                hideRoses();
+                // 4. 绑定玫瑰滚动效果
+                bindRoseScrollEffect();
             }
         });
 
-        function createSingleRowRoses() {
-            roseContainer.innerHTML = '';
-            roseContainer.style.opacity = 1;
+        // 玫瑰滚动效果（仅在密码验证后绑定）
+        function bindRoseScrollEffect() {
+            let isRoseVisible = false;
+            const roseIcon = '🌹';
+            const rosePerRow = 32;
+            const bouquetCenterX = window.innerWidth / 2;
+            const rowRadius = 340;
 
-            // 主玫瑰（32朵，加密分布）
-            for (let i = 0; i < rosePerRow; i++) {
-                const rose = document.createElement('div');
-                rose.className = 'rose rose-row-3';
-                rose.textContent = roseIcon;
+            poemContainer.addEventListener('scroll', () => {
+                const scrollBottom = poemContainer.scrollHeight - poemContainer.scrollTop;
+                const containerHeight = poemContainer.clientHeight;
+                const isScrollToBottom = scrollBottom <= containerHeight + 20;
 
-                const angle = i * (Math.PI / (rosePerRow - 1));
-                const x = bouquetCenterX + Math.cos(angle) * rowRadius;
-                const size = Math.random() * 12 + 20;
-                const delay = i * 0.02;
-                const rotate = Math.random() * 15 - 7.5;
+                if (isScrollToBottom && !isRoseVisible) {
+                    isRoseVisible = true;
+                    createSingleRowRoses();
+                } else if (!isScrollToBottom && isRoseVisible) {
+                    isRoseVisible = false;
+                    hideRoses();
+                }
+            });
 
-                rose.style.left = `${x}px`;
-                rose.style.fontSize = `${size}px`;
-                rose.style.transform = `rotate(${rotate}deg)`;
-                rose.style.animationDelay = `${delay}s`;
+            function createSingleRowRoses() {
+                roseContainer.innerHTML = '';
+                roseContainer.style.opacity = 1;
 
-                roseContainer.appendChild(rose);
-            }
-
-            // 补充玫瑰（12朵，填补空隙）
-            setTimeout(() => {
-                for (let i = 0; i < 12; i++) {
+                // 主玫瑰（32朵）
+                for (let i = 0; i < rosePerRow; i++) {
                     const rose = document.createElement('div');
                     rose.className = 'rose rose-row-3';
                     rose.textContent = roseIcon;
-                    const x = (window.innerWidth / 12) * i - 10;
-                    const size = Math.random() * 10 + 22;
-                    const delay = Math.random() * 0.4;
+
+                    const angle = i * (Math.PI / (rosePerRow - 1));
+                    const x = bouquetCenterX + Math.cos(angle) * rowRadius;
+                    const size = Math.random() * 12 + 20;
+                    const delay = i * 0.02;
+                    const rotate = Math.random() * 15 - 7.5;
+
                     rose.style.left = `${x}px`;
                     rose.style.fontSize = `${size}px`;
-                    rose.style.transform = `rotate(${Math.random() * 15 - 7.5}deg)`;
+                    rose.style.transform = `rotate(${rotate}deg)`;
                     rose.style.animationDelay = `${delay}s`;
+
                     roseContainer.appendChild(rose);
                 }
-            }, 300);
-        }
 
-        function hideRoses() {
-            const roses = document.querySelectorAll('.rose');
-            roses.forEach(rose => {
-                rose.style.animation = 'rose-hide 0.8s ease-out forwards';
-            });
-            setTimeout(() => {
-                roseContainer.style.opacity = 0;
-                roseContainer.innerHTML = '';
-            }, 800);
+                // 补充玫瑰（12朵）
+                setTimeout(() => {
+                    for (let i = 0; i < 12; i++) {
+                        const rose = document.createElement('div');
+                        rose.className = 'rose rose-row-3';
+                        rose.textContent = roseIcon;
+                        const x = (window.innerWidth / 12) * i - 10;
+                        const size = Math.random() * 10 + 22;
+                        const delay = Math.random() * 0.4;
+                        rose.style.left = `${x}px`;
+                        rose.style.fontSize = `${size}px`;
+                        rose.style.transform = `rotate(${Math.random() * 15 - 7.5}deg)`;
+                        rose.style.animationDelay = `${delay}s`;
+                        roseContainer.appendChild(rose);
+                    }
+                }, 300);
+            }
+
+            function hideRoses() {
+                const roses = document.querySelectorAll('.rose');
+                roses.forEach(rose => {
+                    rose.style.animation = 'rose-hide 0.8s ease-out forwards';
+                });
+                setTimeout(() => {
+                    roseContainer.style.opacity = 0;
+                    roseContainer.innerHTML = '';
+                }, 800);
+            }
         }
     </script>
-
 </body>
 </html>
