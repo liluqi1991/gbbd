@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>abb</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "STKaiti", "KaiTi", serif;
+        }
+
+        body {
+            background: linear-gradient(120deg, #fff1f9, #ffd1dc, #ffc1e9);
+            height: 100vh;
+            width: 100vw;
+            padding: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .star {
+            position: absolute;
+            background: #fff;
+            border-radius: 2px;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            animation: twinkle 1.8s infinite ease-in-out;
+            opacity: 0.4;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.4; transform: scale(0.9); }
+            50% { opacity: 1.2; transform: scale(1.4); }
+            100% { opacity: 0.4; transform: scale(0.9); }
+        }
+
+        .poem-container {
+            position: relative;
+            z-index: 1;
+            max-width: 320px;
+            margin: 0 auto;
+            padding: 8px 15px 60px 15px;
+            background: transparent;
+            box-shadow: none;
+            border-radius: 0;
+            height: calc(100vh - 40px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            mask-image: linear-gradient(to bottom, transparent 0%, #fff 8%, #fff 92%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #fff 8%, #fff 92%, transparent 100%);
+        }
+
+        .poem-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .poem-content {
+            color: #4a3246;
+            font-size: 16px;
+            line-height: 2.4;
+            text-align: left;
+            white-space: pre-line;
+            font-weight: 400;
+            margin-top: 3px;
+        }
+
+        @media (min-width: 390px) {
+            .poem-container {
+                max-width: 340px;
+                padding: 8px 15px 65px 15px;
+            }
+            .poem-content {
+                font-size: 18px;
+                line-height: 2.5;
+            }
+        }
+
+        .password-mask {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #ffd1dc;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease, pointer-events 0.5s ease;
+            padding: 0 20px;
+        }
+
+        .password-mask.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .mask-hint {
+            color: #d63384;
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            letter-spacing: 3px;
+            text-align: center;
+            text-transform: lowercase;
+        }
+
+        .password-input {
+            width: 100%;
+            max-width: 280px;
+            padding: 15px 20px;
+            border: 2px solid #d63384;
+            border-radius: 30px;
+            background: #fff;
+            font-size: 17px;
+            color: #d63384;
+            outline: none;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .password-input:focus {
+            border-color: #d63384;
+            box-shadow: 0 0 15px rgba(214, 51, 132, 0.3);
+        }
+
+        .rose-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            overflow: hidden;
+        }
+
+        .rose {
+            position: absolute;
+            bottom: 10px;
+            color: #c24a7c;
+            opacity: 0;
+            animation: rose-emerge 1.2s ease-out forwards;
+            transform-origin: center;
+        }
+
+        @keyframes rose-emerge {
+            0% {
+                transform: scale(0.1);
+                opacity: 0;
+                bottom: -20px;
+            }
+            70% {
+                transform: scale(1);
+                opacity: 1;
+                bottom: 10px;
+            }
+            100% {
+                transform: scale(1.05);
+                opacity: 1;
+                bottom: 10px;
+            }
+        }
+
+        @keyframes rose-hide {
+            0% {
+                transform: scale(1.05);
+                opacity: 1;
+                bottom: 10px;
+            }
+            30% {
+                transform: scale(1);
+                opacity: 0.9;
+                bottom: 10px;
+            }
+            100% {
+                transform: scale(0.1);
+                opacity: 0;
+                bottom: -20px;
+            }
+        }
+
+        .rose-row-3 { z-index: 1; }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+
+    <div class="password-mask" id="passwordMask">
+        <div class="mask-hint">abbm</div>
+        <input type="password" class="password-input" id="passwordInput" placeholder="输入密码自动解锁">
+    </div>
+
+    <div class="poem-container" id="poemContainer">
+        <div class="poem-content">
+初见那一刻，你眼底的光如流星撞进我心间
+我们走过天街，灯影追着脚步轻旋
+沿着夜晚的河岸漫步，踏乱月影如碎银片片
+秋千轻摇，摇出初见的丝丝微甜
+走上西兴大桥，看两岸灯火点点，晚风卷起衣角翩翩
+倚在江边楼顶，夕阳和晚霞铺满眼前
+漫步清河古街，指尖掠过青瓦墙垣
+穿行西湖苏堤畔，裙角被露水沾满
+长椅上看流云舒卷，花丛边看蝶影翩跹
+每一处驻足，都印着我们的身影点点
+时光忽然停滞，像风筝越升越高，线轴无声飞转
+忽然一声轻响，只剩风萦绕耳边
+
+新年钟声响起，我们去人海中跨年，在送别时相见
+与你重逢的瞬间，对视的目光没有陌生，只有炽热蔓延
+纵然知道你将走向天边，也愿握住这份温暖
+深夜车轮轻响深巷，街灯泛着昏黄光线
+心里藏着欢喜，也裹着细碎的伤感
+像是纪念过往走过的晨昏，又像给这段忽明忽暗的路写下句点
+五彩气球从人群中挣脱，飞向暗蓝的天，眼前一切如梦如幻
+不知道是重逢的斑斓，
+还是怕你像气球飞远，只留我空握余温在掌间
+
+转眼来到春天，草莓成熟时又相见
+像梦一场，情节忽然反转
+我们一起骑车，掠过林荫和江岸
+一起散步在公园，呼吸荷花的丝丝香甜
+一起看凌晨的日出，夜晚黑色变成凌晨的漫天火焰
+一起让风掀起衣角，穿梭在城市的脉络间
+一起牵着手爬山，迈过一级级石坎
+风里夹着悄悄话，轻轻吹进彼此耳畔
+我们并肩昂桑湖纤道，踏着苏州古镇青石板，
+看小河流淌，把双脚浸入水波之间
+倚着黄浦江游船，看两岸高楼深入云端
+骑上千岛湖长桥，看水雾漫过远山
+我们一起探店，尝遍街角的烟火小餐
+一起在菜市场挑挑拣拣，回家做出鲜香酸甜
+一起计算柴米油盐，精打细算筹划明天
+幸福就印在生活里的点点滴滴，藏在时光里的平平淡淡
+
+转眼走过一春秋，时光悄然流转
+花开花落，寒来暑往，季节又回到初见
+风里的味道依然是当初那般清甜
+又想回到天街河边，重温相遇的心动瞬间，拾起过往碎碎片段
+只是这一次，想停在婚姻登记处前
+和你一起推开那扇门，携手相依，直到永远
+        </div>
+    </div>
+
+    <div class="rose-container" id="roseContainer"></div>
+
+    <audio id="backgroundMusic" loop preload="none">
+        <source src="background.mp3" type="audio/mpeg">
+        您的浏览器不支持音频播放
+    
+
+    <script>
+        window.onload = () => {
+            passwordInput.focus();
+        };
+
+        // 星光效果（放大+强闪烁）
+        const stars = document.getElementById('stars');
+        const starCount = 40;
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+
+        for (let i = 0; i < starCount; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const x = Math.random() * screenWidth;
+            const y = Math.random() * screenHeight;
+            const size = Math.random() * 3 + 5;
+            const delay = Math.random() * 3;
+            
+            star.style.left = `${x}px`;
+            star.style.top = `${y}px`;
+            star.style.width = `${size}px`;
+            star.style.height = `${size}px`;
+            star.style.animationDelay = `${delay}s`;
+            
+            stars.appendChild(star);
+        }
+
+        // 密码解锁+音频播放（仅解锁后播放）
+        const passwordMask = document.getElementById('passwordMask');
+        const passwordInput = document.getElementById('passwordInput');
+        const correctPassword = 'abb';
+        const audio = document.getElementById('backgroundMusic');
+
+        passwordInput.addEventListener('input', (e) => {
+            const inputValue = e.target.value.trim();
+            if (inputValue === correctPassword) {
+                passwordMask.classList.add('hidden');
+                document.querySelector('.poem-container').focus();
+                passwordInput.blur();
+                document.activeElement.blur();
+                audio.play().catch(err => {
+                    alert('请轻触页面播放背景音乐（同文件夹需有background.mp3）');
+                });
+            }
+        });
+
+        // 加密草莓熊玫瑰（单行铺满，无空隙）
+        const poemContainer = document.getElementById('poemContainer');
+        const roseContainer = document.getElementById('roseContainer');
+        let isRoseVisible = false;
+        const roseIcon = '🌹';
+        const rosePerRow = 32;
+        const bouquetCenterX = screenWidth / 2;
+        const rowRadius = 340;
+
+        poemContainer.addEventListener('scroll', () => {
+            const scrollBottom = poemContainer.scrollHeight - poemContainer.scrollTop;
+            const containerHeight = poemContainer.clientHeight;
+            const isScrollToBottom = scrollBottom <= containerHeight + 20;
+
+            if (isScrollToBottom && !isRoseVisible) {
+                isRoseVisible = true;
+                createSingleRowRoses();
+            } else if (!isScrollToBottom && isRoseVisible) {
+                isRoseVisible = false;
+                hideRoses();
+            }
+        });
+
+        function createSingleRowRoses() {
+            roseContainer.innerHTML = '';
+            roseContainer.style.opacity = 1;
+
+            // 主玫瑰（32朵，加密分布）
+            for (let i = 0; i < rosePerRow; i++) {
+                const rose = document.createElement('div');
+                rose.className = 'rose rose-row-3';
+                rose.textContent = roseIcon;
+
+                const angle = i * (Math.PI / (rosePerRow - 1));
+                const x = bouquetCenterX + Math.cos(angle) * rowRadius;
+                const size = Math.random() * 12 + 20;
+                const delay = i * 0.02;
+                const rotate = Math.random() * 15 - 7.5;
+
+                rose.style.left = `${x}px`;
+                rose.style.fontSize = `${size}px`;
+                rose.style.transform = `rotate(${rotate}deg)`;
+                rose.style.animationDelay = `${delay}s`;
+
+                roseContainer.appendChild(rose);
+            }
+
+            // 补充玫瑰（12朵，填补空隙）
+            setTimeout(() => {
+                for (let i = 0; i < 12; i++) {
+                    const rose = document.createElement('div');
+                    rose.className = 'rose rose-row-3';
+                    rose.textContent = roseIcon;
+                    const x = (screenWidth / 12) * i - 10;
+                    const size = Math.random() * 10 + 22;
+                    const delay = Math.random() * 0.4;
+                    rose.style.left = `${x}px`;
+                    rose.style.fontSize = `${size}px`;
+                    rose.style.transform = `rotate(${Math.random() * 15 - 7.5}deg)`;
+                    rose.style.animationDelay = `${delay}s`;
+                    roseContainer.appendChild(rose);
+                }
+            }, 300);
+        }
+
+        function hideRoses() {
+            const roses = document.querySelectorAll('.rose');
+            roses.forEach(rose => {
+                rose.style.animation = 'rose-hide 0.8s ease-out forwards';
+            });
+            setTimeout(() => {
+                roseContainer.style.opacity = 0;
+                roseContainer.innerHTML = '';
+            }, 800);
+        }
+    </script>
