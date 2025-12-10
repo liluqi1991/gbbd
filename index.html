@@ -2,16 +2,26 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <!-- 修复iOS微信viewport适配：增加viewport-fit=cover，兼容刘海屏 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>abb</title>
     <style>
+        /* 核心新增：锁定根元素字体大小 + 禁止文本缩放（对抗微信字体缩放） */
+        html {
+            font-size: 16px !important; /* 固定根字体大小，优先级最高 */
+            -webkit-text-size-adjust: 100% !important; /* 禁止iOS/微信调整文本大小 */
+            text-size-adjust: 100% !important;
+            -moz-text-size-adjust: 100% !important;
+            -ms-text-size-adjust: 100% !important;
+        }
+
         /* 全局重置 */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
             font-family: "PingFang SC", "STKaiti", "KaiTi", serif;
+            /* 新增：子元素继承固定字体大小，禁止缩放 */
+            font-size: inherit !important;
         }
 
         body {
@@ -21,11 +31,12 @@
             padding: 20px 0;
             position: relative;
             overflow: hidden;
-            /* 修复iOS微信滚动卡顿：增加-webkit-overflow-scrolling */
             -webkit-overflow-scrolling: touch;
-            /* 修复iOS微信body高度计算问题 */
             height: -webkit-fill-available;
             width: -webkit-fill-available;
+            /* 新增：强制锁定文本大小，禁止微信缩放 */
+            -webkit-text-size-adjust: none !important;
+            text-size-adjust: none !important;
         }
 
         /* 星星效果（初始隐藏）- 修复iOS微信clip-path兼容 */
@@ -44,12 +55,10 @@
             position: absolute;
             background: #fff;
             border-radius: 2px;
-            /* 兼容iOS微信的clip-path写法：增加-webkit-前缀 */
             -webkit-clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
             clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
             animation: twinkle 1.8s infinite ease-in-out;
             opacity: 0.4;
-            /* 修复iOS微信动画卡顿：增加-webkit-前缀 */
             -webkit-animation: twinkle 1.8s infinite ease-in-out;
         }
 
@@ -65,7 +74,7 @@
             100% { opacity: 0.4; transform: scale(0.9); }
         }
 
-        /* 诗句容器（初始隐藏）- 修复iOS微信滚动问题 */
+        /* 诗句容器 - 核心修复：替换mask-image为伪元素渐变遮罩，新增初始定位样式 */
         .poem-container {
             position: relative;
             z-index: 1;
@@ -75,18 +84,62 @@
             background: transparent;
             box-shadow: none;
             border-radius: 0;
-            /* 修复iOS微信高度计算：改用100% + 兼容写法 */
             height: calc(100vh - 40px);
             height: calc(-webkit-fill-available - 40px);
             overflow-y: auto;
             overflow-x: hidden;
             scrollbar-width: none;
             -ms-overflow-style: none;
-            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #fff 8%, #fff 92%, transparent 100%);
-            mask-image: linear-gradient(to bottom, transparent 0%, #fff 8%, #fff 92%, transparent 100%);
             display: none;
-            /* 修复iOS微信滚动卡顿 */
             -webkit-overflow-scrolling: touch;
+            /* 初始状态（诗句从底部淡出） */
+            opacity: 0;
+            transform: translateY(100%);
+            -webkit-transform: translateY(100%);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+            -webkit-transition: opacity 0.8s ease, -webkit-transform 0.8s ease;
+        }
+
+        /* 修复遮罩：用伪元素代替mask-image，兼容微信 */
+        .poem-container::before,
+        .poem-container::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 20%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        /* 顶部淡出遮罩 */
+        .poem-container::before {
+            top: 0;
+            background: linear-gradient(to bottom, 
+                rgba(255, 241, 249, 1) 0%, 
+                rgba(255, 241, 249, 0.8) 50%, 
+                rgba(255, 241, 249, 0) 100%);
+            -webkit-background: linear-gradient(to bottom, 
+                rgba(255, 241, 249, 1) 0%, 
+                rgba(255, 241, 249, 0.8) 50%, 
+                rgba(255, 241, 249, 0) 100%);
+        }
+        /* 底部淡出遮罩 */
+        .poem-container::after {
+            bottom: 0;
+            background: linear-gradient(to top, 
+                rgba(255, 241, 249, 1) 0%, 
+                rgba(255, 241, 249, 0.8) 50%, 
+                rgba(255, 241, 249, 0) 100%);
+            -webkit-background: linear-gradient(to top, 
+                rgba(255, 241, 249, 1) 0%, 
+                rgba(255, 241, 249, 0.8) 50%, 
+                rgba(255, 241, 249, 0) 100%);
+        }
+
+        .poem-container.show {
+            opacity: 1;
+            transform: translateY(0);
+            -webkit-transform: translateY(0);
         }
 
         .poem-container::-webkit-scrollbar {
@@ -95,12 +148,14 @@
 
         .poem-content {
             color: #4a3246;
-            font-size: 16px;
+            font-size: 16px !important; /* 强制固定字体大小，对抗微信缩放 */
             line-height: 2.4;
             text-align: left;
             white-space: pre-line;
             font-weight: 400;
             margin-top: 3px;
+            position: relative;
+            z-index: 1;
         }
 
         @media (min-width: 390px) {
@@ -109,7 +164,7 @@
                 padding: 8px 15px 65px 15px;
             }
             .poem-content {
-                font-size: 18px;
+                font-size: 18px !important; /* 强制固定，优先级最高 */
                 line-height: 2.5;
             }
         }
@@ -119,7 +174,6 @@
             position: fixed;
             top: 0;
             left: 0;
-            /* 修复iOS微信全屏问题：使用-webkit-fill-available */
             width: 100vw;
             width: -webkit-fill-available;
             height: 100vh;
@@ -133,7 +187,6 @@
             padding: 0 20px;
             opacity: 1;
             pointer-events: auto;
-            /* 修复iOS微信flex布局兼容 */
             -webkit-box-orient: vertical;
             -webkit-box-direction: normal;
             -webkit-box-align: center;
@@ -142,7 +195,7 @@
 
         .mask-hint {
             color: #d63384;
-            font-size: 22px;
+            font-size: 22px !important; /* 强制固定 */
             font-weight: 600;
             margin-bottom: 20px;
             letter-spacing: 3px;
@@ -158,20 +211,18 @@
             border: 2px solid #d63384;
             border-radius: 30px;
             background: #fff;
-            font-size: 17px;
+            font-size: 17px !important; /* 强制固定 */
             color: #d63384;
             outline: none;
             text-align: center;
             letter-spacing: 2px;
             display: none;
-            /* 修复iOS微信输入框样式 */
             -webkit-appearance: none;
             appearance: none;
         }
 
         .password-input:focus {
             border-color: #d63384;
-            /* 增加-webkit-前缀兼容iOS微信 */
             -webkit-box-shadow: 0 0 15px rgba(214, 51, 132, 0.3);
             box-shadow: 0 0 15px rgba(214, 51, 132, 0.3);
         }
@@ -179,7 +230,7 @@
         /* 加载提示 */
         .loading-indicator {
             color: #d63384;
-            font-size: 18px;
+            font-size: 18px !important; /* 强制固定 */
             text-align: center;
         }
 
@@ -193,7 +244,6 @@
             pointer-events: none;
             z-index: 2;
             opacity: 0;
-            /* 增加-webkit-前缀 */
             -webkit-transition: opacity 0.3s ease;
             transition: opacity 0.3s ease;
             overflow: hidden;
@@ -205,7 +255,6 @@
             bottom: 10px;
             color: #c24a7c;
             opacity: 0;
-            /* 增加-webkit-前缀 */
             -webkit-animation: rose-emerge 1.2s ease-out forwards;
             animation: rose-emerge 1.2s ease-out forwards;
             transform-origin: center;
@@ -306,7 +355,7 @@
 
     <!-- 诗句容器（初始隐藏） -->
     <div class="poem-container" id="poemContainer">
-        <div class="poem-content">
+        <div class="poem-content" id="poemContent">
 初见那一刻，你眼底的光如流星撞进我心间
 我们走过天街，灯影追着脚步轻旋
 沿着夜晚的河岸漫步，踏乱月影如碎银片片
@@ -374,8 +423,14 @@
         const passwordInput = document.getElementById('passwordInput');
         const stars = document.getElementById('stars');
         const poemContainer = document.getElementById('poemContainer');
+        const poemContent = document.getElementById('poemContent');
         const roseContainer = document.getElementById('roseContainer');
         const correctPassword = 'abb'; // 正确密码
+
+        // 自动滚动相关变量
+        let autoScrollTimer = null; // 自动滚动定时器
+        let isAutoScrolling = false; // 是否正在自动滚动
+        const scrollSpeed = 1; // 自动滚动速度（像素/帧）
 
         // 修复：改用DOMContentLoaded（更早执行，兼容微信）
         document.addEventListener('DOMContentLoaded', () => {
@@ -385,6 +440,12 @@
                 showPasswordUI(); // 强制显示密码界面，不再等音频
             }, 800); 
             loadAudioGracefully(); // 优雅加载音频（不阻塞UI）
+            
+            // 新增：监听微信字体缩放事件，强制重置
+            window.addEventListener('resize', () => {
+                document.documentElement.style.fontSize = '16px !important';
+                document.body.style.webkitTextSizeAdjust = 'none !important';
+            }, { passive: true });
         });
 
         // 初始化星星效果
@@ -453,6 +514,12 @@
                 // 2. 显示核心内容
                 stars.style.display = 'block';
                 poemContainer.style.display = 'block';
+                // 新增：添加show类，触发诗句从底部淡出动画
+                setTimeout(() => {
+                    poemContainer.classList.add('show');
+                    // 启动自动滚动
+                    startAutoScroll();
+                }, 300);
                 roseContainer.style.display = 'block';
 
                 // 3. 播放音频（微信需要用户交互，这里密码输入属于用户交互，可播放）
@@ -466,8 +533,55 @@
 
                 // 4. 绑定玫瑰滚动效果
                 bindRoseScrollEffect();
+
+                // 5. 绑定触屏停止自动滚动事件
+                bindTouchStopScroll();
             }
         });
+
+        // 新增：启动自动滚动函数
+        function startAutoScroll() {
+            if (isAutoScrolling) return;
+            isAutoScrolling = true;
+
+            // 使用requestAnimationFrame实现平滑滚动
+            function scrollStep() {
+                // 检查是否滚动到最底部
+                const isAtBottom = (poemContainer.scrollTop + poemContainer.clientHeight) >= (poemContainer.scrollHeight - 10);
+                if (isAtBottom) {
+                    stopAutoScroll(); // 滚动到底部停止
+                    return;
+                }
+
+                // 平滑滚动
+                poemContainer.scrollTop += scrollSpeed;
+                autoScrollTimer = requestAnimationFrame(scrollStep);
+            }
+
+            autoScrollTimer = requestAnimationFrame(scrollStep);
+        }
+
+        // 新增：停止自动滚动函数
+        function stopAutoScroll() {
+            if (!isAutoScrolling) return;
+            cancelAnimationFrame(autoScrollTimer);
+            isAutoScrolling = false;
+        }
+
+        // 新增：绑定触屏停止自动滚动
+        function bindTouchStopScroll() {
+            // 监听touchstart事件（用户触屏即停止）
+            poemContainer.addEventListener('touchstart', () => {
+                stopAutoScroll();
+            }, { passive: true });
+
+            // 可选：监听scroll事件（用户手动滚动也停止）
+            poemContainer.addEventListener('scroll', () => {
+                if (isAutoScrolling) {
+                    stopAutoScroll();
+                }
+            }, { passive: true });
+        }
 
         // 玫瑰滚动效果 - 修复iOS微信滚动事件兼容
         function bindRoseScrollEffect() {
@@ -558,9 +672,12 @@
             }
         }
 
-        // 修复iOS微信旋转屏幕适配
+        // 修复iOS微信旋转屏幕适配 + 新增字体缩放重置
         window.addEventListener('resize', () => {
-            // 重新计算星星/玫瑰位置（可选，根据需要）
+            // 重新计算星星/玫瑰位置（可选）
+            // 强制重置字体大小，对抗微信缩放
+            document.documentElement.style.fontSize = '16px !important';
+            document.body.style.webkitTextSizeAdjust = 'none !important';
         });
     </script>
 </body>
