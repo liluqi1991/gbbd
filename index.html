@@ -72,18 +72,18 @@
             100% { opacity: 0.4; transform: scale(0.9); }
         }
 
-        /* 诗句末尾玫瑰emoji样式 - 初始隐藏，滑到底部才淡入 */
+        /* 诗句末尾玫瑰emoji样式 - 初始隐藏，滑到最后一行淡入 */
         .poem-rose {
             opacity: 0;
             transform: translateX(5px);
             -webkit-transform: translateX(5px);
-            /* 淡入过渡效果 */
+            /* 淡入过渡效果调整为1秒 */
             transition: 
-                opacity 1.5s ease-out,
-                transform 1.5s ease-out;
+                opacity 1s ease-out,
+                transform 1s ease-out;
             -webkit-transition: 
-                opacity 1.5s ease-out,
-                -webkit-transform 1.5s ease-out;
+                opacity 1s ease-out,
+                -webkit-transform 1s ease-out;
             /* 玫瑰大小适配 */
             font-size: inherit !important;
             line-height: 1;
@@ -355,8 +355,8 @@
         // 缓动函数：easeOutCubic
         const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
-        // 防抖函数：避免滚动频繁触发判断（优化iPhone微信性能）
-        const debounce = (fn, delay = 100) => {
+        // 防抖函数：缩短延迟，更及时检测滚动（优化iPhone微信性能）
+        const debounce = (fn, delay = 50) => {
             let timer = null;
             return function(...args) {
                 if (timer) clearTimeout(timer);
@@ -495,13 +495,14 @@
             }, 300);
         }
 
-        // 检测是否滚动到诗句最底部
+        // 检测是否滚动到最后一行（提前触发玫瑰显示）
         function checkScrollToBottom() {
             if (isRoseShowed) return; // 玫瑰已显示，不再检测
             
             const { scrollTop, clientHeight, scrollHeight } = poemContainer;
-            // 计算滚动到底部的阈值（10px容错）
-            const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
+            // 优化触发阈值：滚动到距离底部80px内就触发（最后一行可见时）
+            // 80px适配不同屏幕尺寸，确保最后一行出现时立即触发
+            const isAtBottom = scrollTop + clientHeight >= scrollHeight - 80;
             
             if (isAtBottom) {
                 isRoseShowed = true;
@@ -525,13 +526,17 @@
             return values[5] || 0;
         }
 
-        // 停止动画并校准位置
+        // 停止动画并校准位置（修复半透明和边距问题）
         function stopPoemAnimation(isAutoEnd = false) {
             if (!isAnimating) return;
             
             cancelAnimationFrame(animationFrameId);
             isAnimating = false;
 
+            // 1. 立即恢复字体完全不透明
+            poemContent.style.opacity = '1';
+            
+            // 2. 重置位移，恢复正常边距
             const currentTransformY = getTransformY(poemContent);
             const containerHeight = poemContainer.clientHeight;
             const topMargin = parseFloat(getComputedStyle(poemContent).marginTop) || 0;
@@ -546,6 +551,7 @@
             poemContent.style.webkitTransform = 'translateY(0)';
             poemContainer.scrollTop = targetScrollTop;
 
+            // 移除停止动画的监听
             poemContainer.removeEventListener('touchstart', stopPoemAnimation);
             poemContainer.removeEventListener('scroll', stopPoemAnimation);
             poemContainer.removeEventListener('mousedown', stopPoemAnimation);
@@ -565,7 +571,7 @@
             poemContainer.addEventListener('scroll', stopPoemAnimation, { once: true, passive: true });
             poemContainer.addEventListener('mousedown', stopPoemAnimation, { once: true, passive: true });
 
-            // 绑定滚动监听，检测是否滑到底部显示玫瑰
+            // 绑定滚动监听，检测是否滑到最后一行显示玫瑰
             poemContainer.addEventListener('scroll', debouncedCheckScroll, { passive: true });
 
             const animate = () => {
