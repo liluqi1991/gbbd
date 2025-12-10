@@ -96,7 +96,10 @@
             display: none;
         }
 
-        /* 诗句文字 */
+        /* 诗句文字 - 关键修复：
+           1. 初始transform移到屏幕外
+           2. 新增top-margin，确保手动滑回时第一行与顶部有正常行距（一个行距）
+        */
         .poem-content {
             color: #4a3246;
             font-size: 16px !important;
@@ -106,8 +109,17 @@
             font-weight: 400;
             position: relative;
             z-index: 3;
+            /* 正常顶部边距：一个行距（line-height:2.4 → 约16*2.4=38.4px，取38px） */
+            margin-top: 38px;
+            /* 初始位置：屏幕底部外（默认不可见） */
+            transform: translateY(calc(100vh + 100px));
+            -webkit-transform: translateY(calc(100vh + 100px));
+            /* 保证transform变化平滑 */
+            transition: transform 0.1s ease;
+            -webkit-transition: transform 0.1s ease;
         }
 
+        /* 媒体查询适配边距 */
         @media (min-width: 390px) {
             .poem-container {
                 max-width: 340px;
@@ -115,6 +127,8 @@
             .poem-content {
                 font-size: 18px !important;
                 line-height: 2.5;
+                /* 适配后行距：18*2.5=45px */
+                margin-top: 45px;
             }
         }
 
@@ -136,6 +150,9 @@
             padding: 0 20px;
             opacity: 1;
             pointer-events: auto;
+            /* 遮罩隐藏动画同步 */
+            transition: opacity 0.5s ease;
+            -webkit-transition: opacity 0.5s ease;
         }
 
         .mask-hint {
@@ -258,6 +275,12 @@
         const poemContent = document.getElementById('poemContent');
         const correctPassword = 'abb';
 
+        // 标记是否已经显示密码界面（防止重复触发）
+        let isPasswordUIShowed = false;
+        // 动画状态管理
+        let isAnimating = false; // 是否正在执行上滑动画
+        let animationFrameId = null; // 动画帧ID，用于取消动画
+
         // 页面加载完成初始化
         document.addEventListener('DOMContentLoaded', () => {
             initStars();
@@ -297,38 +320,153 @@
 
         // 显示密码输入框（确保音频加载完成后再显示）
         function showPasswordUI() {
+            // 防止重复执行
+            if (isPasswordUIShowed) return;
+            isPasswordUIShowed = true;
+
             loadingIndicator.style.display = 'none';
             maskHint.style.display = 'block';
             passwordInput.style.display = 'block';
             // 强制触发焦点，兼容移动端
             setTimeout(() => {
-                passwordInput.focus();
-                // 兼容iOS微信键盘呼出
-                passwordInput.click();
+                try {
+                    passwordInput.focus();
+                    // 兼容iOS微信键盘呼出
+                    passwordInput.click();
+                } catch (e) {
+                    console.log('焦点设置失败:', e);
+                }
             }, 300);
         }
 
-        // 加载音频（确保加载完成后再显示密码界面）
+        // 加载音频（确保加载完成后再显示密码界面，增加超时兜底）
         function loadAudioGracefully() {
-            audio.load();
-            audio.addEventListener('canplaythrough', () => {
+            // 1. 先绑定事件再执行load，避免错过事件
+            const handleAudioReady = () => {
                 console.log('✅ 音频加载完成，显示密码界面');
                 showPasswordUI();
-            });
-            audio.addEventListener('error', (err) => {
+            };
+
+            const handleAudioError = (err) => {
                 console.error('❌ 音频加载失败:', err);
-                // 即使加载失败，也显示密码界面
                 showPasswordUI();
-            });
+            };
+
+            // 绑定音频事件
+            audio.addEventListener('canplaythrough', handleAudioReady, { once: true });
+            audio.addEventListener('error', handleAudioError, { once: true });
+            audio.addEventListener('abort', handleAudioError, { once: true }); // 处理音频加载被中止的情况
+
+            // 2. 超时兜底：5秒后强制显示密码界面（防止音频加载卡死）
+            const timeoutTimer = setTimeout(() => {
+                console.log('⏰ 音频加载超时，强制显示密码界面');
+                showPasswordUI();
+                // 移除未触发的事件监听
+                audio.removeEventListener('canplaythrough', handleAudioReady);
+                audio.removeEventListener('error', handleAudioError);
+                audio.removeEventListener('abort', handleAudioError);
+            }, 5000);
+
+            // 3. 执行音频加载
+            try {
+                audio.load();
+            } catch (e) {
+                console.error('❌ 音频load执行失败:', e);
+                clearTimeout(timeoutTimer);
+                showPasswordUI();
+            }
+        }
+
+        // 解析transform的Y偏移值（核心工具函数）
+        function getTransformY(element) {
+            const transform = getComputedStyle(element).transform;
+            if (transform === 'none' || !transform) return 0;
+            // 解析matrix(1,0,0,1,tx,ty)中的ty值
+            const matrix = transform.match(/matrix\(([^)]+)\)/);
+            if (!matrix) return 0;
+            const values = matrix[1].split(',').map(parseFloat);
+            return values[5] || 0; // ty是第6个值
+        }
+
+        // 停止诗句上滑动画（核心修复：将transform偏移转为scrollTop）
+        function stopPoemAnimation() {
+            if (!isAnimating) return;
+            
+            // 1. 取消动画帧请求，终止动画循环
+            cancelAnimationFrame(animationFrameId);
+            // 2. 标记动画已停止
+            isAnimating = false;
+            
+            // 3. 核心：将transform的Y偏移转换为容器的scrollTop
+            const currentTransformY = getTransformY(poemContent);
+            const containerHeight = poemContainer.clientHeight;
+            
+            // 计算需要设置的scrollTop：transformY是向下偏移（正值），转为scrollTop（向上滚动）
+            // 公式：scrollTop = (容器高度 + 100) - currentTransformY - 顶部边距（保证第一行滑回时有正常边距）
+            const topMargin = parseFloat(getComputedStyle(poemContent).marginTop) || 0;
+            let targetScrollTop = (containerHeight + 100) - currentTransformY - topMargin;
+            // 边界处理：scrollTop不能为负
+            targetScrollTop = Math.max(0, targetScrollTop);
+            
+            // 4. 重置transform为0（移除偏移，让滚动仅依赖scrollTop）
+            poemContent.style.transform = 'translateY(0)';
+            poemContent.style.webkitTransform = 'translateY(0)';
+            
+            // 5. 设置容器的scrollTop，让诗句停在视觉同一位置
+            poemContainer.scrollTop = targetScrollTop;
+            
+            // 6. 移除所有触碰/滚动监听（避免重复触发）
+            poemContainer.removeEventListener('touchstart', stopPoemAnimation);
+            poemContainer.removeEventListener('scroll', stopPoemAnimation);
+            poemContainer.removeEventListener('mousedown', stopPoemAnimation);
+        }
+
+        // 诗句滑动动画函数（独立封装，便于调用）
+        function startPoemAnimation() {
+            const poemLine = poemContent;
+            const containerHeight = poemContainer.clientHeight;
+            // 初始位置已通过CSS设置，这里直接启动动画
+            const startTime = performance.now();
+            const duration = 5000; // 5秒
+            
+            // 标记动画开始
+            isAnimating = true;
+            
+            // 绑定触碰/滚动事件：用户操作时停止动画
+            poemContainer.addEventListener('touchstart', stopPoemAnimation, { once: true, passive: true });
+            poemContainer.addEventListener('scroll', stopPoemAnimation, { once: true, passive: true });
+            poemContainer.addEventListener('mousedown', stopPoemAnimation, { once: true, passive: true });
+
+            const animate = () => {
+                // 如果动画已停止，直接退出
+                if (!isAnimating) return;
+                
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // 计算新的y位置（从底部外到顶部）
+                const newY = (containerHeight + 100) - (containerHeight + 100) * progress;
+                poemLine.style.transform = `translateY(${newY}px)`;
+                poemLine.style.webkitTransform = `translateY(${newY}px)`;
+                
+                // 如果动画未完成，继续下一帧
+                if (progress < 1) {
+                    animationFrameId = requestAnimationFrame(animate);
+                } else {
+                    // 动画正常结束：转换为scrollTop并重置transform
+                    stopPoemAnimation();
+                }
+            };
+            
+            animationFrameId = requestAnimationFrame(animate);
         }
 
         // 密码验证 & 核心逻辑触发
         passwordInput.addEventListener('input', (e) => {
             const inputValue = e.target.value.trim();
             if (inputValue === correctPassword) {
-                // 隐藏密码层
+                // 隐藏密码层（通过CSS transition实现平滑隐藏）
                 passwordMask.style.opacity = 0;
-                passwordMask.style.webkitOpacity = 0;
                 passwordMask.style.pointerEvents = 'none';
                 setTimeout(() => passwordMask.style.display = 'none', 500);
 
@@ -336,44 +474,8 @@
                 stars.style.display = 'block';
                 poemContainer.classList.add('show');
                 
-                // ✅ 修复1：诗句自动滚动（从屏幕底部外缓慢滑到顶部）
-                setTimeout(() => {
-                    // 获取第一行诗句的初始位置（屏幕底部外）
-                    const poemLine = poemContent;
-                    const containerHeight = poemContainer.clientHeight;
-                    const poemHeight = poemLine.clientHeight;
-                    
-                    // 从屏幕底部外开始（比屏幕高度多100px）
-                    poemLine.style.transform = `translateY(${containerHeight + 100}px)`;
-                    
-                    // 开始动画
-                    const startTime = performance.now();
-                    const duration = 5000; // 5秒
-                    const animate = () => {
-                        const elapsed = performance.now() - startTime;
-                        const progress = Math.min(elapsed / duration, 1);
-                        
-                        // 计算新的y位置（从底部外到顶部）
-                        const newY = containerHeight + 100 - (containerHeight + 100) * progress;
-                        poemLine.style.transform = `translateY(${newY}px)`;
-                        
-                        // 如果动画未完成，继续下一帧
-                        if (progress < 1) {
-                            requestAnimationFrame(animate);
-                        } else {
-                            // 动画结束，固定在顶部
-                            poemLine.style.transform = 'translateY(0)';
-                        }
-                    };
-                    
-                    requestAnimationFrame(animate);
-                    
-                    // 用户手动滚动时停止动画
-                    poemContainer.addEventListener('scroll', () => {
-                        poemLine.style.transform = 'translateY(0)';
-                        poemContainer.removeEventListener('scroll', arguments.callee);
-                    }, { once: true });
-                }, 500);
+                // 立即启动诗句滑动动画（去掉500ms延迟，避免先显示诗句）
+                startPoemAnimation();
                 
                 // 播放音频
                 audio.play().catch(err => {
