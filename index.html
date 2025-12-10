@@ -71,7 +71,7 @@
             100% { opacity: 0.4; transform: scale(0.9); }
         }
 
-        /* 诗句容器 - 核心：确保滚动容器高度正确 */
+        /* 诗句容器 - 完全移除所有遮罩，仅保留滚动基础样式 */
         .poem-container {
             position: relative;
             z-index: 1;
@@ -79,7 +79,6 @@
             margin: 0 auto;
             padding: 8px 15px 60px 15px;
             background: transparent;
-            /* 修复滚动容器高度：优先用可视区高度，兼容微信 */
             height: 100vh;
             max-height: -webkit-fill-available;
             overflow-y: auto;
@@ -106,7 +105,7 @@
             display: none;
         }
 
-        /* 文字上下淡入淡出（无遮罩，仅文字渐变） */
+        /* 诗句文字 - 完全移除mask遮罩，无任何渐变/遮罩效果 */
         .poem-content {
             color: #4a3246;
             font-size: 16px !important;
@@ -117,20 +116,6 @@
             margin-top: 3px;
             position: relative;
             z-index: 1;
-            -webkit-mask-image: linear-gradient(to bottom, 
-                transparent 0%, 
-                rgba(0,0,0,1) 10%, 
-                rgba(0,0,0,1) 90%, 
-                transparent 100%);
-            mask-image: linear-gradient(to bottom, 
-                transparent 0%, 
-                rgba(0,0,0,1) 10%, 
-                rgba(0,0,0,1) 90%, 
-                transparent 100%);
-            -webkit-mask-size: 100% 100%;
-            mask-size: 100% 100%;
-            -webkit-mask-repeat: no-repeat;
-            mask-repeat: no-repeat;
         }
 
         @media (min-width: 390px) {
@@ -144,7 +129,7 @@
             }
         }
 
-        /* 密码遮罩 */
+        /* 密码遮罩（仅登录页，诗句页无遮罩） */
         .password-mask {
             position: fixed;
             top: 0;
@@ -397,10 +382,11 @@
         const roseContainer = document.getElementById('roseContainer');
         const correctPassword = 'abb';
 
-        // 自动滚动核心变量
-        let autoScrollTimer = null;
+        // 自动滚动核心变量（修改为非平滑、超慢速）
+        let autoScrollTimer = null; // 改为定时器对象
         let isAutoScrolling = false;
-        const scrollSpeed = 1; // 滚动速度（像素/帧），可调整
+        const scrollSpeed = 0.1; // 超慢速（像素/100ms），数值越小越慢
+        const scrollInterval = 100; // 滚动间隔（毫秒），越大越不平滑
 
         // 页面加载完成初始化
         document.addEventListener('DOMContentLoaded', () => {
@@ -469,10 +455,9 @@
                 stars.style.display = 'block';
                 poemContainer.style.display = 'block';
                 
-                // 等待诗句淡出动画完成后，启动自动滚动（关键：确保容器已渲染）
+                // 等待诗句淡出动画完成后，启动自动滚动
                 setTimeout(() => {
                     poemContainer.classList.add('show');
-                    // 强制重绘后再启动滚动（修复微信渲染延迟）
                     setTimeout(startAutoScroll, 300);
                 }, 300);
 
@@ -490,18 +475,17 @@
             }
         });
 
-        // 核心：启动自动滚动（修复滚动失效的关键）
+        // 核心：启动超慢速非平滑自动滚动
         function startAutoScroll() {
             if (isAutoScrolling) return;
             isAutoScrolling = true;
 
-            // 平滑滚动函数（requestAnimationFrame 保证流畅）
-            function scrollStep() {
-                // 计算滚动状态：是否到底部（兼容微信高度计算）
+            // 改用setInterval实现非平滑、超慢速滚动（替代requestAnimationFrame）
+            autoScrollTimer = setInterval(() => {
+                // 计算滚动状态：是否到底部
                 const scrollTop = poemContainer.scrollTop;
                 const clientHeight = poemContainer.clientHeight;
                 const scrollHeight = poemContainer.scrollHeight;
-                // 阈值设为 0，确保完全滚到底才停止
                 const isAtBottom = Math.abs(scrollTop + clientHeight - scrollHeight) <= 0;
 
                 if (isAtBottom) {
@@ -509,31 +493,26 @@
                     return;
                 }
 
-                // 向上滚动（scrollTop 增加 = 内容向上移动）
+                // 非平滑向上滚动（每次固定移动极小距离）
                 poemContainer.scrollTop += scrollSpeed;
-                // 持续执行直到停止
-                autoScrollTimer = requestAnimationFrame(scrollStep);
-            }
-
-            // 启动滚动循环
-            autoScrollTimer = requestAnimationFrame(scrollStep);
+            }, scrollInterval);
         }
 
-        // 停止自动滚动
+        // 停止自动滚动（清除定时器）
         function stopAutoScroll() {
             if (!isAutoScrolling) return;
-            cancelAnimationFrame(autoScrollTimer);
+            clearInterval(autoScrollTimer); // 替换为清除定时器
             isAutoScrolling = false;
         }
 
         // 绑定触屏/手动滚动停止自动滚动
         function bindTouchStopScroll() {
-            // 1. 触屏立即停止（touchstart 优先，兼容移动端）
+            // 1. 触屏立即停止
             poemContainer.addEventListener('touchstart', () => {
                 stopAutoScroll();
             }, { passive: true });
 
-            // 2. 手动滚动也停止（防止用户滑动后继续自动滚）
+            // 2. 手动滚动也停止
             poemContainer.addEventListener('scroll', () => {
                 if (isAutoScrolling) stopAutoScroll();
             }, { passive: true });
